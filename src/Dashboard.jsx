@@ -6,18 +6,20 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('TODAY');
   
   const [data, setData] = useState(() => {
-    const saved = localStorage.getItem('raghul_os_v19');
+    const saved = localStorage.getItem('raghul_os_v20');
     return saved ? JSON.parse(saved) : {
-      dayType: 'HOLIDAY',
+      dayType: 'HOLIDAY', // SCHOOL or HOLIDAY
+      activityType: 'NONE', // WORK or TRIP
+      activityStart: '15:00',
       today: { mission: 'PHYSICS', duration: '90', completed: false, progress: 40 },
       tomorrow: { blocks: [] },
-      trading: { strategy: 'NY AM KILLZONE', window: '08:30 - 11:00' },
+      trading: { targetSession: 'NEW YORK' },
       recovery: { sleep: '23:00', wake: '07:00' }
     };
   });
 
   useEffect(() => {
-    localStorage.setItem('raghul_os_v19', JSON.stringify(data));
+    localStorage.setItem('raghul_os_v20', JSON.stringify(data));
   }, [data]);
 
   useEffect(() => {
@@ -25,52 +27,48 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleComplete = () => {
-    if (!data.today.completed) {
-      confetti({ particleCount: 150, spread: 60, origin: { y: 0.7 }, colors: ['#00ff41', '#ffffff', '#00ccff'] });
-    }
-    setData({...data, today: {...data.today, completed: !data.today.completed}});
+  const calculateSleep = () => {
+    const [sH, sM] = data.recovery.sleep.split(':').map(Number);
+    const [wH, wM] = data.recovery.wake.split(':').map(Number);
+    let diff = (wH * 60 + wM) - (sH * 60 + sM);
+    if (diff < 0) diff += 24 * 60; 
+    return (diff / 60).toFixed(1);
+  };
+
+  const getCurrentSession = () => {
+    const hour = new Date().getHours();
+    if (hour >= 8 && hour < 12) return 'LONDON';
+    if (hour >= 13 && hour < 17) return 'NEW YORK';
+    return 'ASIA';
   };
 
   const styles = {
-    container: { backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: '-apple-system, sans-serif' },
-    header: { marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-    tab: (active) => ({
-      padding: '10px 20px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', border: 'none',
-      background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)', color: active ? '#00ff41' : '#444',
-      backdropFilter: 'blur(20px)', transition: '0.3s', marginRight: '8px'
-    }),
-    glassCard: {
-      background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(40px)', borderRadius: '24px',
-      padding: '24px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px', position: 'relative', overflow: 'hidden'
-    },
-    progressBar: { position: 'absolute', bottom: '0', left: '0', width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)' },
-    progressFill: (p) => ({ width: `${p}%`, height: '100%', background: '#00ff41', boxShadow: '0 0 15px #00ff41' }),
-    select: { background: 'rgba(255,255,255,0.08)', border: 'none', color: 'white', borderRadius: '8px', padding: '6px', fontSize: '13px', outline: 'none' }
+    container: { backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'monospace' },
+    glassCard: { background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(40px)', borderRadius: '24px', padding: '24px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px', position: 'relative' },
+    tab: (active) => ({ padding: '10px 20px', borderRadius: '14px', fontSize: '11px', fontWeight: 'bold', border: 'none', background: active ? 'rgba(255,255,255,0.12)' : 'transparent', color: active ? '#00ff41' : '#444' }),
+    select: { background: '#111', color: '#00ff41', border: '1px solid #222', borderRadius: '8px', padding: '8px', outline: 'none' }
   };
 
   const TimePicker = ({ val, onChange }) => (
     <select style={styles.select} value={val} onChange={(e) => onChange(e.target.value)}>
       {Array.from({ length: 24 * 4 }).map((_, i) => {
-        const h = Math.floor(i / 4).toString().padStart(2, '0');
-        const m = ((i % 4) * 15).toString().padStart(2, '0');
-        const t = `${h}:${m}`;
-        return <option key={t} value={t} style={{background: '#000'}}>{t}</option>;
+        const t = `${Math.floor(i/4).toString().padStart(2,'0')}:${((i%4)*15).toString().padStart(2,'0')}`;
+        return <option key={t} value={t}>{t}</option>;
       })}
     </select>
   );
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={{ fontSize: '38px', fontWeight: '800', letterSpacing: '-1.5px' }}>{time}</div>
-        <button onClick={() => setData({...data, dayType: data.dayType === 'SCHOOL' ? 'HOLIDAY' : 'SCHOOL'})}
-          style={{ background: 'transparent', border: `1px solid ${data.dayType === 'SCHOOL' ? '#ff4b4b' : '#00ff41'}`, color: data.dayType === 'SCHOOL' ? '#ff4b4b' : '#00ff41', padding: '6px 12px', borderRadius: '10px', fontSize: '9px', fontWeight: 'bold' }}>
-          {data.dayType} MODE
-        </button>
+      <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
+        <div style={{ fontSize: '32px', fontWeight: '800' }}>{time}</div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '9px', color: '#00ff41' }}>{data.dayType} MODE</div>
+          <div style={{ fontSize: '9px', color: '#ff4b4b' }}>{data.activityType !== 'NONE' ? `${data.activityType} ACTIVE` : ''}</div>
+        </div>
       </header>
 
-      <div style={{ display: 'flex', marginBottom: '30px', overflowX: 'auto', paddingBottom: '10px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
         {['TODAY', 'TOMORROW', 'TRADING'].map(t => (
           <button key={t} onClick={() => setActiveTab(t)} style={styles.tab(activeTab === t)}>{t}</button>
         ))}
@@ -79,23 +77,22 @@ const Dashboard = () => {
       {activeTab === 'TODAY' && (
         <>
           <div style={styles.glassCard}>
-            <span style={{ fontSize: '10px', color: '#555', letterSpacing: '2px' }}>CURRENT MISSION</span>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-              <span style={{ fontSize: '26px', fontWeight: '700', opacity: data.today.completed ? 0.3 : 1 }}>{data.today.mission}</span>
-              <input type="checkbox" checked={data.today.completed} onChange={handleComplete} style={{ width: '24px', height: '24px', accentColor: '#00ff41' }} />
+            <span style={{ fontSize: '10px', color: '#444' }}>CURRENT SCHEDULED MISSION</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+              <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{data.tomorrow.blocks[0]?.subject || 'NO MISSION'}</span>
+              <input type="checkbox" onChange={() => confetti()} style={{ width: '20px' }} />
             </div>
-            <div style={styles.progressBar}><div style={styles.progressFill(data.today.progress)} /></div>
           </div>
 
           <div style={styles.glassCard}>
-            <span style={{ fontSize: '10px', color: '#555', letterSpacing: '2px' }}>RECOVERY LOG</span>
-            <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
-              <div>
-                <div style={{ fontSize: '8px', color: '#333', marginBottom: '5px' }}>SLEEP_TIME</div>
-                <TimePicker val={data.recovery.sleep} onChange={(t) => setData({...data, recovery: {...data.recovery, sleep: t}})} />
+            <span style={{ fontSize: '10px', color: '#444' }}>RECOVERY LOG</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px' }}>
+              <div style={{ color: '#00ff41' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{calculateSleep()}H</div>
+                <div style={{ fontSize: '8px' }}>SLEEP DURATION</div>
               </div>
-              <div>
-                <div style={{ fontSize: '8px', color: '#333', marginBottom: '5px' }}>WAKE_TIME</div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <TimePicker val={data.recovery.sleep} onChange={(t) => setData({...data, recovery: {...data.recovery, sleep: t}})} />
                 <TimePicker val={data.recovery.wake} onChange={(t) => setData({...data, recovery: {...data.recovery, wake: t}})} />
               </div>
             </div>
@@ -106,28 +103,50 @@ const Dashboard = () => {
       {activeTab === 'TOMORROW' && (
         <div>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            <button onClick={() => setData({...data, tomorrow: {blocks: [...data.tomorrow.blocks, {id: Date.now(), subject: 'FLOW_BLOCK', duration: 60}]}})} style={{ flex: 1, background: '#111', color: 'white', border: '1px solid #222', padding: '12px', borderRadius: '15px', fontSize: '11px', fontWeight: 'bold' }}>+ 60M BLOCK</button>
-            <button onClick={() => setData({...data, tomorrow: {blocks: [...data.tomorrow.blocks, {id: Date.now(), subject: 'FLOW_BLOCK', duration: 90}]}})} style={{ flex: 1, background: '#111', color: 'white', border: '1px solid #222', padding: '12px', borderRadius: '15px', fontSize: '11px', fontWeight: 'bold' }}>+ 90M BLOCK</button>
+            <select style={styles.select} onChange={(e) => setData({...data, dayType: e.target.value})}>
+              <option value="HOLIDAY">HOLIDAY</option>
+              <option value="SCHOOL">SCHOOL DAY</option>
+            </select>
+            <select style={styles.select} onChange={(e) => setData({...data, activityType: e.target.value})}>
+              <option value="NONE">NORMAL</option>
+              <option value="WORK">WORK (5H)</option>
+              <option value="TRIP">TRIP (5H)</option>
+            </select>
           </div>
 
-          {data.dayType === 'SCHOOL' && (
-            <div style={{ ...styles.glassCard, background: 'rgba(255,75,75,0.05)', borderStyle: 'dashed', borderColor: 'rgba(255,75,75,0.2)' }}>
-              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ff4b4b' }}>SCHOOL MANDATORY // 08:00 - 15:30</div>
-            </div>
-          )}
+          {data.dayType === 'SCHOOL' && <div style={{...styles.glassCard, color: '#ff4b4b'}}>08:00 - 15:30 // SCHOOL BLOCK</div>}
+          {data.activityType !== 'NONE' && <div style={{...styles.glassCard, color: '#00ccff'}}>{data.activityStart} // {data.activityType} 5H BLACKOUT</div>}
 
-          {data.tomorrow.blocks.map((block) => (
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <button onClick={() => setData({...data, tomorrow: {blocks: [...data.tomorrow.blocks, {id: Date.now(), subject: 'MATH', duration: 60}]}})} style={{ flex: 1, padding: '10px', background: '#111', color: 'white', border: 'none', borderRadius: '10px' }}>+ 60M</button>
+            <button onClick={() => setData({...data, tomorrow: {blocks: [...data.tomorrow.blocks, {id: Date.now(), subject: 'MATH', duration: 90}]}})} style={{ flex: 1, padding: '10px', background: '#111', color: 'white', border: 'none', borderRadius: '10px' }}>+ 90M</button>
+          </div>
+
+          {data.tomorrow.blocks.map((block, i) => (
             <div key={block.id} style={styles.glassCard}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <input style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '18px', fontWeight: '700', outline: 'none', width: '80%' }} value={block.subject} onChange={(e) => {
-                  const newB = data.tomorrow.blocks.map(b => b.id === block.id ? {...b, subject: e.target.value.toUpperCase()} : b);
-                  setData({...data, tomorrow: {blocks: newB}});
-                }} />
-                <button onClick={() => setData({...data, tomorrow: {blocks: data.tomorrow.blocks.filter(b => b.id !== block.id)}})} style={{ background: 'transparent', border: 'none', color: '#ff4b4b', fontSize: '18px' }}>✕</button>
-              </div>
-              <span style={{ fontSize: '10px', color: '#00ff41', fontWeight: 'bold' }}>{block.duration} MIN SESSION</span>
+              <select style={{...styles.select, width: '100%', marginBottom: '10px'}} value={block.subject} onChange={(e) => {
+                const newB = [...data.tomorrow.blocks]; newB[i].subject = e.target.value; setData({...data, tomorrow: {blocks: newB}});
+              }}>
+                {['MATH', 'PHYSICS', 'CYBERSECURITY', 'GLOBAL POWER'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <div style={{fontSize: '10px', color: '#00ff41'}}>{block.duration} MIN SESSION</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {activeTab === 'TRADING' && (
+        <div style={styles.glassCard}>
+          <div style={{marginBottom: '20px'}}>
+            <span style={{fontSize: '10px', color: '#444'}}>CURRENT MARKET</span>
+            <div style={{fontSize: '24px', color: '#00ff41'}}>{getCurrentSession()} SESSION</div>
+          </div>
+          <span style={{fontSize: '10px', color: '#444'}}>TARGET SESSION</span>
+          <select style={{...styles.select, width: '100%', marginTop: '5px'}} value={data.trading.targetSession} onChange={(e) => setData({...data, trading: {...data.trading, targetSession: e.target.value}})}>
+            <option value="LONDON">LONDON</option>
+            <option value="NEW YORK">NEW YORK</option>
+            <option value="ASIA">ASIA</option>
+          </select>
         </div>
       )}
     </div>
