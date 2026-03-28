@@ -1,24 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const Dashboard = () => {
   const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour12: false }));
   const [activeTab, setActiveTab] = useState('TODAY');
   
+  // Clean state for Today, Tomorrow, and Insights
   const [data, setData] = useState(() => {
-    const saved = localStorage.getItem('raghul_os_v15');
+    const saved = localStorage.getItem('raghul_os_v16');
     return saved ? JSON.parse(saved) : {
-      today: { mission: 'PHYSICS', duration: '90', strategy: 'NY AM KILLZONE' },
-      tomorrow: { mission: 'CALCULUS', duration: '120', strategy: 'LONDON OPEN' },
-      recovery: { sleep: '11:00 PM', wake: '07:00 AM' }
+      today: { mission: 'PHYSICS', duration: '90', strategy: 'NY AM KILLZONE', time: '08:30 - 11:00' },
+      tomorrow: { mission: 'SET_MISSION', duration: '0', strategy: 'SET_STRATEGY', time: '00:00 - 00:00' },
+      recovery: { sleep: '11:00 PM', wake: '07:00 AM' },
+      stats: { missionsCompleted: 12, totalHours: 48 }
     };
   });
 
-  const [notes, setNotes] = useState(() => localStorage.getItem('raghul_notes_v15') || "> SYSTEM_REBOOT_COMPLETE\n> STATUS: ELITE_OPS\n> MONITORING_ACTIVE");
+  const [notes, setNotes] = useState(() => localStorage.getItem('raghul_notes_v16') || "> SYSTEM_STABLE\n> READY_FOR_INPUT");
 
   useEffect(() => {
-    localStorage.setItem('raghul_os_v15', JSON.stringify(data));
-    localStorage.setItem('raghul_notes_v15', notes);
+    localStorage.setItem('raghul_os_v16', JSON.stringify(data));
+    localStorage.setItem('raghul_notes_v16', notes);
   }, [data, notes]);
 
   useEffect(() => {
@@ -27,100 +28,89 @@ const Dashboard = () => {
   }, []);
 
   const styles = {
-    container: { 
-      backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '25px', 
-      fontFamily: '"JetBrains Mono", monospace', backgroundImage: 'radial-gradient(circle at 2px 2px, #111 1px, transparent 0)', backgroundSize: '40px 40px' 
-    },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' },
+    container: { backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'monospace', overflowX: 'hidden' },
+    header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', borderBottom: '1px solid #111', paddingBottom: '15px' },
     tabBtn: (active) => ({
-      background: active ? 'rgba(0, 255, 65, 0.1)' : 'transparent', 
-      border: 'none', color: active ? '#00ff41' : '#444', fontSize: '12px', fontWeight: 'bold',
-      cursor: 'pointer', padding: '8px 20px', letterSpacing: '2px', borderBottom: active ? '2px solid #00ff41' : '2px solid transparent'
+      background: 'none', border: 'none', color: active ? '#00ff41' : '#333', fontSize: '13px', fontWeight: 'bold',
+      cursor: 'pointer', marginRight: '15px', borderBottom: active ? '2px solid #00ff41' : 'none', paddingBottom: '5px'
     }),
-    grid: { display: 'flex', flexDirection: window.innerWidth < 1000 ? 'column' : 'row', gap: '20px' },
+    // Fixed: Flex-wrap allows phone stacking without "glitching" or sliding
+    mainGrid: { display: 'flex', flexWrap: 'wrap', gap: '20px' },
     card: { 
-      backgroundColor: 'rgba(10, 10, 10, 0.8)', backdropFilter: 'blur(10px)', border: '1px solid #1a1a1a', 
-      padding: '30px', position: 'relative', flex: 1, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' 
+      backgroundColor: '#080808', borderLeft: '4px solid #1a1a1a', padding: '20px', 
+      flex: '1 1 300px', // This makes it wide on Mac but stacks on Phone
+      minWidth: '280px' 
     },
-    label: { fontSize: '9px', color: '#666', letterSpacing: '4px', textTransform: 'uppercase', marginBottom: '15px', display: 'block' },
-    input: { background: 'transparent', border: 'none', color: '#fff', fontSize: '28px', fontWeight: '900', outline: 'none', width: '100%', textShadow: '0 0 10px rgba(255,255,255,0.2)' },
-    accent: (color) => ({ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', backgroundColor: color, boxShadow: `0 0 15px ${color}` }),
-    badge: { fontSize: '8px', padding: '3px 8px', border: '1px solid #00ff41', color: '#00ff41', position: 'absolute', top: '20px', right: '20px' }
+    label: { fontSize: '9px', color: '#444', letterSpacing: '2px', marginBottom: '10px', display: 'block' },
+    input: { background: 'transparent', border: 'none', color: '#fff', fontSize: '20px', fontWeight: 'bold', outline: 'none', width: '100%', fontFamily: 'monospace' },
+    subInput: { background: 'transparent', border: 'none', color: '#00ff41', fontSize: '11px', outline: 'none', width: '100%', marginTop: '5px' }
   };
 
-  const Page = ({ day }) => (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.grid}>
-      <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={styles.card}>
-          <div style={styles.accent('#00ff41')} />
-          <div style={styles.badge}>NON-NEGOTIABLE</div>
-          <span style={styles.label}>Active Mission Block</span>
-          <input style={styles.input} value={data[day].mission} onChange={(e) => setData({...data, [day]: {...data[day], mission: e.target.value.toUpperCase()}})} />
-          <div style={{ color: '#00ff41', fontSize: '10px', marginTop: '10px' }}>⚡ SESSION_LENGTH: {data[day].duration} MIN</div>
-        </div>
-
-        <div style={styles.card}>
-          <div style={styles.accent('#00ccff')} />
-          <span style={styles.label}>Execution Strategy</span>
-          <input style={{ ...styles.input, fontSize: '20px' }} value={data[day].strategy} onChange={(e) => setData({...data, [day]: {...data[day], strategy: e.target.value.toUpperCase()}})} />
+  const renderPage = (dayKey) => (
+    <div style={styles.mainGrid}>
+      <div style={{...styles.card, borderLeftColor: '#00ff41'}}>
+        <span style={styles.label}>ACTIVE_MISSION_BLOCK</span>
+        <input style={styles.input} value={data[dayKey].mission} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], mission: e.target.value.toUpperCase()}})} />
+        <div style={{display: 'flex', gap: '10px'}}>
+           <input style={styles.subInput} value={`${data[dayKey].duration} MIN`} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], duration: e.target.value.replace(/\D/g,'')}})} />
+           <input style={styles.subInput} value={data[dayKey].time} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], time: e.target.value}})} />
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={styles.card}>
-          <div style={styles.accent('#333')} />
-          <span style={styles.label}>Recovery Metrics</span>
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '8px', color: '#444', marginBottom: '5px' }}>TARGET_SLEEP</div>
-              <input style={{ ...styles.input, fontSize: '16px' }} value={data.recovery.sleep} onChange={(e) => setData({...data, recovery: {...data.recovery, sleep: e.target.value}})} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '8px', color: '#444', marginBottom: '5px' }}>ACTUAL_WAKE</div>
-              <input style={{ ...styles.input, fontSize: '16px' }} value={data.recovery.wake} onChange={(e) => setData({...data, recovery: {...data.recovery, wake: e.target.value}})} />
-            </div>
-          </div>
-        </div>
+      <div style={{...styles.card, borderLeftColor: '#00ccff'}}>
+        <span style={styles.label}>NON_NEGOTIABLE_STRATEGY</span>
+        <input style={styles.input} value={data[dayKey].strategy} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], strategy: e.target.value.toUpperCase()}})} />
+      </div>
 
-        <div style={{ ...styles.card, background: '#050505' }}>
-          <div style={styles.accent('#ff4b4b')} />
-          <span style={styles.label}>System Terminal</span>
-          <textarea 
-            style={{ background: 'transparent', border: 'none', color: '#00ff41', width: '100%', height: '140px', outline: 'none', fontFamily: 'monospace', fontSize: '12px', resize: 'none' }}
-            value={notes} onChange={(e) => setNotes(e.target.value)}
-          />
+      <div style={styles.card}>
+        <span style={styles.label}>RECOVERY_LOG</span>
+        <div style={{display: 'flex', gap: '10px'}}>
+          <input style={{...styles.input, fontSize: '14px'}} value={data.recovery.sleep} onChange={(e) => setData({...data, recovery: {...data.recovery, sleep: e.target.value}})} />
+          <input style={{...styles.input, fontSize: '14px'}} value={data.recovery.wake} onChange={(e) => setData({...data, recovery: {...data.recovery, wake: e.target.value}})} />
         </div>
       </div>
-    </motion.div>
+
+      <div style={{...styles.card, borderLeftColor: '#ff4b4b', flex: '1 1 100%'}}>
+        <span style={styles.label}>TERMINAL_INPUT</span>
+        <textarea 
+          style={{background: 'transparent', border: 'none', color: '#00ff41', width: '100%', height: '80px', outline: 'none', resize: 'none', fontFamily: 'monospace'}}
+          value={notes} onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
+    </div>
   );
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <div style={{ fontSize: '10px', color: '#555', letterSpacing: '6px', marginBottom: '15px' }}>SYSTEM_CORE_V15</div>
-          <div style={{ display: 'flex', gap: '5px' }}>
+          <div style={{fontSize: '9px', color: '#222', marginBottom: '10px'}}>RAGHUL_OS_v16</div>
+          <div style={{display: 'flex'}}>
             {['TODAY', 'TOMORROW', 'INSIGHTS'].map(t => (
               <button key={t} onClick={() => setActiveTab(t)} style={styles.tabBtn(activeTab === t)}>{t}</button>
             ))}
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '38px', fontWeight: '900', letterSpacing: '-2px', color: '#fff' }}>{time}</div>
-          <div style={{ fontSize: '9px', color: '#00ff41', letterSpacing: '2px' }}>SHIELD_ACTIVE // ENCRYPTED</div>
+        <div style={{textAlign: 'right'}}>
+          <div style={{fontSize: '28px', fontWeight: 'bold'}}>{time}</div>
+          <div style={{fontSize: '8px', color: '#00ff41'}}>SYSTEM_OPERATIONAL</div>
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        {activeTab === 'TODAY' && <Page key="today" day="today" />}
-        {activeTab === 'TOMORROW' && <Page key="tomorrow" day="tomorrow" />}
-        {activeTab === 'INSIGHTS' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ ...styles.card, textAlign: 'center', padding: '100px' }}>
-            <span style={styles.label}>Data Stream Offline</span>
-            <div style={{ color: '#222' }}>AGGREGATING_SYSTEM_METRICS...</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {activeTab === 'TODAY' && renderPage('today')}
+      {activeTab === 'TOMORROW' && renderPage('tomorrow')}
+      {activeTab === 'INSIGHTS' && (
+        <div style={styles.mainGrid}>
+          <div style={styles.card}>
+            <span style={styles.label}>MISSIONS_COMPLETED</span>
+            <div style={{fontSize: '24px', fontWeight: 'bold'}}>{data.stats.missionsCompleted}</div>
+          </div>
+          <div style={styles.card}>
+            <span style={styles.label}>TOTAL_FLOW_HOURS</span>
+            <div style={{fontSize: '24px', fontWeight: 'bold'}}>{data.stats.totalHours}H</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
