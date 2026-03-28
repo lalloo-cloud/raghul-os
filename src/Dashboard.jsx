@@ -2,29 +2,28 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 
 const SUBJECTS = ['MATH', 'PHYSICS', 'CYBERSECURITY', 'ARCHITECTURE OF GLOBAL POWER'];
-const SESSIONS = [
-  { name: 'NY AM',  range: [5.5, 8],    color: '#00ff41' },
-  { name: 'NY PM',  range: [10.5, 13],  color: '#00ff41' },
-  { name: 'ASIA',   range: [16, 19],    color: '#00ccff' },
-  { name: 'LONDON', range: [23, 26],    color: '#ff9500' } // 26 represents 2am next day
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getDateKey = (offset = 0) => {
   const d = new Date();
   d.setDate(d.getDate() + offset);
-  return d.toISOString().split('T')[0];
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver' }).format(d);
 };
 
 const getCurrentSession = () => {
   const now = new Date();
-  const hrs = now.getHours() + now.getMinutes() / 60;
-  const match = SESSIONS.find(s => {
-    if (s.name === 'LONDON') return hrs >= 23 || hrs < 2;
-    return hrs >= s.range[0] && hrs < s.range[1];
-  });
-  return match || { name: 'CLOSED', color: '#444' };
+  const ptStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Vancouver',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(now);
+  const [h, m] = ptStr.split(':').map(Number);
+  const mins = h * 60 + m;
+  if (mins >= 5 * 60 + 30 && mins < 8 * 60)   return { name: 'NY AM',   color: '#00ff41' };
+  if (mins >= 10 * 60 + 30 && mins < 13 * 60) return { name: 'NY PM',   color: '#00ff41' };
+  if (mins >= 16 * 60 && mins < 19 * 60)      return { name: 'ASIA',    color: '#00ccff' };
+  if (mins >= 23 * 60 || mins < 2 * 60)       return { name: 'LONDON', color: '#ff9500' };
+  return { name: 'CLOSED', color: '#444' };
 };
 
 const calcSleep = (sleep, wake) => {
@@ -37,17 +36,24 @@ const calcSleep = (sleep, wake) => {
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
-const TimePicker = ({ val, onChange }) => (
-  <select value={val} onChange={e => onChange(e.target.value)}
-    style={{ background: '#111', border: '1px solid #222', color: '#00ff41', borderRadius: '8px', padding: '6px', fontSize: '12px', outline: 'none' }}>
+const TimePicker = ({ val, onChange, disabled }) => (
+  <select value={val} onChange={e => onChange(e.target.value)} disabled={disabled}
+    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)', color: disabled ? '#222' : '#00ff41', borderRadius: '10px', padding: '8px', fontSize: '12px', outline: 'none', cursor: disabled ? 'not-allowed' : 'pointer' }}>
     {Array.from({ length: 96 }).map((_, i) => {
       const t = `${Math.floor(i/4).toString().padStart(2,'0')}:${((i%4)*15).toString().padStart(2,'0')}`;
-      return <option key={t} value={t}>{t}</option>;
+      return <option key={t} value={t} style={{background: '#111'}}>{t}</option>;
     })}
   </select>
 );
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+const BlockRow = ({ color, label, time }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', background: `${color}0a`, border: `1px dashed ${color}33`, borderRadius: '12px', marginBottom: '8px' }}>
+    <span style={{ fontSize: '11px', fontWeight: '800', color, letterSpacing: '1px' }}>{label}</span>
+    <span style={{ fontSize: '11px', color, opacity: 0.7 }}>{time}</span>
+  </div>
+);
+
+// ─── Main OS ──────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [time, setTime] = useState('');
@@ -55,7 +61,7 @@ export default function Dashboard() {
   const [session, setSession] = useState(getCurrentSession());
 
   const [data, setData] = useState(() => {
-    const saved = localStorage.getItem('raghul_os_v20');
+    const saved = localStorage.getItem('raghul_os_v21');
     return saved ? JSON.parse(saved) : { 
       recovery: { sleep: '23:00', wake: '07:30' }, 
       trading: { target: 'NY AM' },
@@ -63,7 +69,7 @@ export default function Dashboard() {
     };
   });
 
-  useEffect(() => { localStorage.setItem('raghul_os_v20', JSON.stringify(data)); }, [data]);
+  useEffect(() => { localStorage.setItem('raghul_os_v21', JSON.stringify(data)); }, [data]);
 
   useEffect(() => {
     const tick = () => {
@@ -75,112 +81,132 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  const todayData = data.schedule[getDateKey(0)] || { dayType: 'HOLIDAY', blocks: [] };
-  const tomorrowData = data.schedule[getDateKey(1)] || { dayType: 'HOLIDAY', blocks: [], workStart: '15:00', hasWork: false, hasTrip: false };
+  const todayKey = getDateKey(0);
+  const tomorrowKey = getDateKey(1);
+  const todayData = data.schedule[todayKey] || { dayType: 'HOLIDAY', blocks: [], workStart: '15:00', hasWork: false, hasTrip: false };
+  const tomorrowData = data.schedule[tomorrowKey] || { dayType: 'HOLIDAY', blocks: [], workStart: '15:00', hasWork: false, hasTrip: false };
 
   const updateDay = (key, updates) => {
     setData(prev => ({ ...prev, schedule: { ...prev.schedule, [key]: { ...(prev.schedule[key] || { dayType: 'HOLIDAY', blocks: [] }), ...updates } } }));
   };
 
-  const glass = { background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(40px)', borderRadius: '20px', padding: '20px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '12px' };
-  const label = { fontSize: '9px', color: '#444', letterSpacing: '2px', fontWeight: 'bold', display: 'block', marginBottom: '10px' };
+  const handleMissionComplete = () => {
+    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#00ff41', '#ffffff'] });
+  };
+
+  const styles = {
+    glass: { background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(40px)', borderRadius: '22px', padding: '22px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '14px' },
+    label: { fontSize: '9px', color: '#444', letterSpacing: '2.5px', fontWeight: '800', display: 'block', marginBottom: '12px', textTransform: 'uppercase' },
+    chip: (active, color) => ({ padding: '10px 14px', borderRadius: '12px', fontSize: '10px', fontWeight: '800', border: `1px solid ${active ? color : '#1a1a1a'}`, background: active ? `${color}15` : 'transparent', color: active ? color : '#333', cursor: 'pointer', transition: '0.2s' })
+  };
 
   return (
-    <div style={{ backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: '-apple-system, sans-serif' }}>
+    <div style={{ backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '24px 20px', fontFamily: '-apple-system, sans-serif', maxWidth: '500px', margin: '0 auto' }}>
       
-      {/* Clock & Session */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-        <div style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>{time}</div>
-        <div style={{ color: session.color, fontSize: '10px', fontWeight: 'bold', border: `1px solid ${session.color}`, padding: '4px 8px', borderRadius: '6px' }}>
-          {session.name}
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <div style={{ fontSize: '38px', fontWeight: '800', letterSpacing: '-1.5px' }}>{time}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: session.color, boxShadow: `0 0 12px ${session.color}` }} />
+          <span style={{ fontSize: '11px', color: session.color, fontWeight: '900', letterSpacing: '1px' }}>{session.name}</span>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '5px', marginBottom: '25px', background: '#111', padding: '4px', borderRadius: '12px' }}>
+      {/* Navigation */}
+      <div style={{ display: 'flex', gap: '5px', marginBottom: '25px', background: 'rgba(255,255,255,0.03)', padding: '5px', borderRadius: '16px' }}>
         {['TODAY', 'TOMORROW', 'TRADING'].map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} style={{ flex: 1, padding: '10px', background: activeTab === t ? '#222' : 'transparent', color: activeTab === t ? '#00ff41' : '#444', border: 'none', borderRadius: '10px', fontSize: '10px', fontWeight: 'bold' }}>{t}</button>
+          <button key={t} onClick={() => setActiveTab(t)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeTab === t ? 'rgba(255,255,255,0.08)' : 'transparent', color: activeTab === t ? '#00ff41' : '#333', fontSize: '11px', fontWeight: '900' }}>{t}</button>
         ))}
       </div>
 
-      {activeTab === 'TODAY' && (
-        <>
-          <div style={glass}>
-            <span style={label}>ACTIVE SCHEDULE</span>
-            {todayData.dayType === 'SCHOOL' && <div style={{ color: '#ff4b4b', fontSize: '12px', marginBottom: '10px' }}>● 08:00 - 15:30 SCHOOL MANDATORY</div>}
-            {todayData.blocks.map(b => (
-              <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #111' }}>
-                <span style={{ fontWeight: 'bold' }}>{b.subject}</span>
-                <span style={{ color: '#00ff41' }}>{b.duration}m</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={glass}>
-            <span style={label}>RECOVERY LOG</span>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {activeTab === 'TODAY' && <>
+        <div style={styles.glass}>
+          <span style={styles.label}>LIVE TIMELINE</span>
+          {todayData.dayType === 'SCHOOL' && <BlockRow color="#ff4b4b" label="SCHOOL BLOCK" time="08:00 — 15:30" />}
+          {todayData.hasWork && <BlockRow color="#ff9500" label="WORK BLOCK" time={`${todayData.workStart} — 5H LOCK`} />}
+          
+          {todayData.blocks.map(b => (
+            <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'rgba(0,255,65,0.04)', borderRadius: '14px', marginBottom: '10px', border: '1px solid rgba(0,255,65,0.08)' }}>
               <div>
-                <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#00ff41' }}>{calcSleep(data.recovery.sleep, data.recovery.wake)}H</div>
-                <div style={{ fontSize: '9px', color: '#444' }}>TOTAL SLEEP</div>
+                <div style={{ fontSize: '14px', fontWeight: '800' }}>{b.subject}</div>
+                <div style={{ fontSize: '10px', color: '#00ff41', marginTop: '4px' }}>{b.duration} MIN SESSION</div>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <TimePicker val={data.recovery.sleep} onChange={t => setData({...data, recovery: {...data.recovery, sleep: t}})} />
-                <TimePicker val={data.recovery.wake} onChange={t => setData({...data, recovery: {...data.recovery, wake: t}})} />
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {activeTab === 'TOMORROW' && (
-        <>
-          <div style={glass}>
-            <span style={label}>DAY SETTINGS</span>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
-              <button onClick={() => updateDay(getDateKey(1), { dayType: 'SCHOOL' })} style={{ flex: 1, padding: '8px', borderRadius: '8px', background: tomorrowData.dayType === 'SCHOOL' ? '#ff4b4b22' : '#111', color: tomorrowData.dayType === 'SCHOOL' ? '#ff4b4b' : '#333', border: '1px solid #222' }}>SCHOOL</button>
-              <button onClick={() => updateDay(getDateKey(1), { dayType: 'HOLIDAY' })} style={{ flex: 1, padding: '8px', borderRadius: '8px', background: tomorrowData.dayType === 'HOLIDAY' ? '#00ff4122' : '#111', color: tomorrowData.dayType === 'HOLIDAY' ? '#00ff41' : '#333', border: '1px solid #222' }}>HOLIDAY</button>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => updateDay(getDateKey(1), { hasWork: !tomorrowData.hasWork })} style={{ flex: 1, padding: '8px', borderRadius: '8px', background: tomorrowData.hasWork ? '#00ccff22' : '#111', color: tomorrowData.hasWork ? '#00ccff' : '#333', border: '1px solid #222' }}>WORK</button>
-              <button onClick={() => updateDay(getDateKey(1), { hasTrip: !tomorrowData.hasTrip })} style={{ flex: 1, padding: '8px', borderRadius: '8px', background: tomorrowData.hasTrip ? '#ff950022' : '#111', color: tomorrowData.hasTrip ? '#ff9500' : '#333', border: '1px solid #222' }}>TRIP</button>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-            <button onClick={() => updateDay(getDateKey(1), { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'PHYSICS', duration: 60 }] })} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#111', color: 'white', border: 'none' }}>+ 60M</button>
-            <button onClick={() => updateDay(getDateKey(1), { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'PHYSICS', duration: 90 }] })} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#111', color: 'white', border: 'none' }}>+ 90M</button>
-          </div>
-
-          {tomorrowData.blocks.map((b, i) => (
-            <div key={b.id} style={glass}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ fontSize: '10px', color: '#00ff41' }}>BLOCK {i+1}</span>
-                <button onClick={() => updateDay(getDateKey(1), { blocks: tomorrowData.blocks.filter(x => x.id !== b.id) })} style={{ background: 'transparent', border: 'none', color: '#ff4b4b' }}>✕</button>
-              </div>
-              <select value={b.subject} onChange={e => {
-                const newB = [...tomorrowData.blocks]; newB[i].subject = e.target.value; updateDay(getDateKey(1), { blocks: newB });
-              }} style={{ width: '100%', padding: '10px', background: '#111', color: 'white', border: '1px solid #222', borderRadius: '8px' }}>
-                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <input type="checkbox" onChange={handleMissionComplete} style={{ width: '22px', height: '22px', accentColor: '#00ff41', cursor: 'pointer' }} />
             </div>
           ))}
-        </>
-      )}
+          
+          {todayData.blocks.length === 0 && !todayData.hasWork && todayData.dayType !== 'SCHOOL' && (
+            <div style={{ textAlign: 'center', padding: '30px', color: '#222', fontSize: '11px', letterSpacing: '2px' }}>SYSTEM IDLE — NO BLOCKS FOUND</div>
+          )}
+        </div>
+
+        <div style={styles.glass}>
+          <span style={styles.label}>RECOVERY METRICS</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '34px', fontWeight: '900', color: '#00ff41', letterSpacing: '-1px' }}>{calcSleep(data.recovery.sleep, data.recovery.wake)}H</div>
+              <div style={{ fontSize: '9px', color: '#333', fontWeight: '700' }}>SLEEP QUALITY</div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <TimePicker val={data.recovery.sleep} onChange={t => setData({...data, recovery: {...data.recovery, sleep: t}})} />
+              <TimePicker val={data.recovery.wake} onChange={t => setData({...data, recovery: {...data.recovery, wake: t}})} />
+            </div>
+          </div>
+        </div>
+      </>}
+
+      {activeTab === 'TOMORROW' && <>
+        <div style={styles.glass}>
+          <span style={styles.label}>GLOBAL CONSTRAINTS</span>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+            <button onClick={() => updateDay(tomorrowKey, { dayType: 'SCHOOL' })} style={styles.chip(tomorrowData.dayType === 'SCHOOL', '#ff4b4b')}>SCHOOL</button>
+            <button onClick={() => updateDay(tomorrowKey, { dayType: 'HOLIDAY' })} style={styles.chip(tomorrowData.dayType === 'HOLIDAY', '#00ff41')}>HOLIDAY</button>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={() => updateDay(tomorrowKey, { hasWork: !tomorrowData.hasWork })} style={styles.chip(tomorrowData.hasWork, '#ff9500')}>WORK</button>
+            <button onClick={() => updateDay(tomorrowKey, { hasTrip: !tomorrowData.hasTrip })} style={styles.chip(tomorrowData.hasTrip, '#00ccff')}>TRIP</button>
+            {(tomorrowData.hasWork || tomorrowData.hasTrip) && <TimePicker val={tomorrowData.workStart} onChange={t => updateDay(tomorrowKey, { workStart: t })} />}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+          <button onClick={() => updateDay(tomorrowKey, { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'MATH', duration: 60 }] })} style={{ flex: 1, padding: '15px', background: '#111', color: '#fff', border: '1px solid #222', borderRadius: '14px', fontSize: '10px', fontWeight: '900' }}>+ 60M BLOCK</button>
+          <button onClick={() => updateDay(tomorrowKey, { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'MATH', duration: 90 }] })} style={{ flex: 1, padding: '15px', background: '#111', color: '#fff', border: '1px solid #222', borderRadius: '14px', fontSize: '10px', fontWeight: '900' }}>+ 90M BLOCK</button>
+        </div>
+
+        {tomorrowData.blocks.map((b, i) => (
+          <div key={b.id} style={styles.glass}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+              <span style={{ fontSize: '10px', color: '#00ff41', fontWeight: '900' }}>{b.duration}M FLOW BLOCK</span>
+              <button onClick={() => updateDay(tomorrowKey, { blocks: tomorrowData.blocks.filter(x => x.id !== b.id) })} style={{ background: 'transparent', border: 'none', color: '#ff4b4b', cursor: 'pointer' }}>✕</button>
+            </div>
+            <select value={b.subject} onChange={e => {
+              const newB = [...tomorrowData.blocks]; newB[i].subject = e.target.value; updateDay(tomorrowKey, { blocks: newB });
+            }} style={{ width: '100%', padding: '14px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '14px', fontWeight: '700', outline: 'none' }}>
+              {SUBJECTS.map(s => <option key={s} value={s} style={{background: '#111'}}>{s}</option>)}
+            </select>
+          </div>
+        ))}
+      </>}
 
       {activeTab === 'TRADING' && (
-        <div style={glass}>
-          <span style={label}>SESSION OVERVIEW</span>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: session.color, marginBottom: '20px' }}>{session.name} MARKET</div>
-          <span style={label}>MY TARGET SESSION</span>
+        <div style={styles.glass}>
+          <span style={styles.label}>MARKET STATUS</span>
+          <div style={{ fontSize: '30px', fontWeight: '900', color: session.color, marginBottom: '25px' }}>{session.name} LIVE</div>
+          <span style={styles.label}>TARGET KILLZONE</span>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {SESSIONS.map(s => (
-              <button key={s.name} onClick={() => setData({...data, trading: {target: s.name}})} 
-                style={{ padding: '8px 12px', borderRadius: '8px', background: data.trading.target === s.name ? `${s.color}22` : '#111', color: data.trading.target === s.name ? s.color : '#333', border: '1px solid #222' }}>
-                {s.name}
+            {['NY AM', 'NY PM', 'LONDON', 'ASIA'].map(s => (
+              <button key={s} onClick={() => setData({...data, trading: {target: s}})} 
+                style={styles.chip(data.trading.target === s, '#00ff41')}>
+                {s}
               </button>
             ))}
           </div>
-          {data.trading.target === session.name && <div style={{ marginTop: '20px', color: '#00ff41', fontSize: '12px' }}>● TARGET SESSION IS CURRENTLY ACTIVE</div>}
+          {data.trading.target === session.name && (
+            <div style={{ marginTop: '25px', padding: '15px', background: 'rgba(0,255,65,0.05)', border: '1px solid rgba(0,255,65,0.1)', borderRadius: '14px', color: '#00ff41', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+              ● EXECUTION WINDOW OPEN
+            </div>
+          )}
         </div>
       )}
     </div>
