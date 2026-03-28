@@ -34,11 +34,11 @@ const calcSleep = (sleep, wake) => {
   return (diff / 60).toFixed(1);
 };
 
-// ─── Components ───────────────────────────────────────────────────────────────
+// ─── Shared Components ────────────────────────────────────────────────────────
 
-const TimePicker = ({ val, onChange, disabled }) => (
-  <select value={val} onChange={e => onChange(e.target.value)} disabled={disabled}
-    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)', color: disabled ? '#222' : '#00ff41', borderRadius: '10px', padding: '8px', fontSize: '12px', outline: 'none', cursor: disabled ? 'not-allowed' : 'pointer' }}>
+const TimePicker = ({ val, onChange }) => (
+  <select value={val} onChange={e => onChange(e.target.value)}
+    style={{ background: '#111', border: '1px solid #222', color: '#00ff41', borderRadius: '8px', padding: '8px', fontSize: '12px', outline: 'none' }}>
     {Array.from({ length: 96 }).map((_, i) => {
       const t = `${Math.floor(i/4).toString().padStart(2,'0')}:${((i%4)*15).toString().padStart(2,'0')}`;
       return <option key={t} value={t} style={{background: '#111'}}>{t}</option>;
@@ -59,9 +59,10 @@ export default function Dashboard() {
   const [time, setTime] = useState('');
   const [activeTab, setActiveTab] = useState('TODAY');
   const [session, setSession] = useState(getCurrentSession());
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
 
   const [data, setData] = useState(() => {
-    const saved = localStorage.getItem('raghul_os_v21');
+    const saved = localStorage.getItem('raghul_os_v22');
     return saved ? JSON.parse(saved) : { 
       recovery: { sleep: '23:00', wake: '07:30' }, 
       trading: { target: 'NY AM' },
@@ -69,7 +70,13 @@ export default function Dashboard() {
     };
   });
 
-  useEffect(() => { localStorage.setItem('raghul_os_v21', JSON.stringify(data)); }, [data]);
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth > 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => { localStorage.setItem('raghul_os_v22', JSON.stringify(data)); }, [data]);
 
   useEffect(() => {
     const tick = () => {
@@ -81,134 +88,127 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  const todayKey = getDateKey(0);
-  const tomorrowKey = getDateKey(1);
-  const todayData = data.schedule[todayKey] || { dayType: 'HOLIDAY', blocks: [], workStart: '15:00', hasWork: false, hasTrip: false };
-  const tomorrowData = data.schedule[tomorrowKey] || { dayType: 'HOLIDAY', blocks: [], workStart: '15:00', hasWork: false, hasTrip: false };
+  const todayData = data.schedule[getDateKey(0)] || { dayType: 'HOLIDAY', blocks: [], workStart: '15:00', hasWork: false };
+  const tomorrowData = data.schedule[getDateKey(1)] || { dayType: 'HOLIDAY', blocks: [], workStart: '15:00', hasWork: false };
 
   const updateDay = (key, updates) => {
     setData(prev => ({ ...prev, schedule: { ...prev.schedule, [key]: { ...(prev.schedule[key] || { dayType: 'HOLIDAY', blocks: [] }), ...updates } } }));
   };
 
-  const handleMissionComplete = () => {
-    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#00ff41', '#ffffff'] });
+  const styles = {
+    container: { backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: isDesktop ? '40px' : '20px', fontFamily: '-apple-system, sans-serif' },
+    layout: { display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr', gap: '30px', maxWidth: '1400px', margin: '0 auto' },
+    glass: { background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(40px)', borderRadius: '24px', padding: '24px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px' },
+    label: { fontSize: '10px', color: '#444', letterSpacing: '2.5px', fontWeight: '800', display: 'block', marginBottom: '15px' },
+    nav: { display: isDesktop ? 'none' : 'flex', gap: '5px', marginBottom: '25px', background: '#111', padding: '5px', borderRadius: '14px' },
+    activeTab: { flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#00ff41', fontWeight: '900', fontSize: '11px' }
   };
 
-  const styles = {
-    glass: { background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(40px)', borderRadius: '22px', padding: '22px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '14px' },
-    label: { fontSize: '9px', color: '#444', letterSpacing: '2.5px', fontWeight: '800', display: 'block', marginBottom: '12px', textTransform: 'uppercase' },
-    chip: (active, color) => ({ padding: '10px 14px', borderRadius: '12px', fontSize: '10px', fontWeight: '800', border: `1px solid ${active ? color : '#1a1a1a'}`, background: active ? `${color}15` : 'transparent', color: active ? color : '#333', cursor: 'pointer', transition: '0.2s' })
-  };
+  const TodayPanel = (
+    <div style={styles.glass}>
+      <span style={styles.label}>TODAY / {getDateKey(0)}</span>
+      {todayData.dayType === 'SCHOOL' && <BlockRow color="#ff4b4b" label="SCHOOL" time="08:00 - 15:30" />}
+      {todayData.hasWork && <BlockRow color="#ff9500" label="WORK" time={`${todayData.workStart} - 5H`} />}
+      {todayData.blocks.map(b => (
+        <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(0,255,65,0.04)', borderRadius: '14px', marginBottom: '10px', border: '1px solid rgba(0,255,65,0.1)' }}>
+          <div>
+            <div style={{ fontWeight: '800' }}>{b.subject}</div>
+            <div style={{ fontSize: '10px', color: '#00ff41', marginTop: '4px' }}>{b.duration} MIN FLOW</div>
+          </div>
+          <input type="checkbox" onChange={() => confetti()} style={{ width: '20px', height: '20px', accentColor: '#00ff41' }} />
+        </div>
+      ))}
+    </div>
+  );
+
+  const TomorrowPanel = (
+    <div style={styles.glass}>
+      <span style={styles.label}>TOMORROW ARCHITECT</span>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <button onClick={() => updateDay(getDateKey(1), { dayType: 'SCHOOL' })} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: tomorrowData.dayType === 'SCHOOL' ? '#ff4b4b22' : '#111', color: tomorrowData.dayType === 'SCHOOL' ? '#ff4b4b' : '#333', border: 'none' }}>SCHOOL</button>
+        <button onClick={() => updateDay(getDateKey(1), { dayType: 'HOLIDAY' })} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: tomorrowData.dayType === 'HOLIDAY' ? '#00ff4122' : '#111', color: tomorrowData.dayType === 'HOLIDAY' ? '#00ff41' : '#333', border: 'none' }}>HOLIDAY</button>
+      </div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <button onClick={() => updateDay(getDateKey(1), { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'MATH', duration: 60 }] })} style={{ flex: 1, padding: '15px', background: '#111', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '10px', fontWeight: '900' }}>+60M</button>
+        <button onClick={() => updateDay(getDateKey(1), { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'MATH', duration: 90 }] })} style={{ flex: 1, padding: '15px', background: '#111', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '10px', fontWeight: '900' }}>+90M</button>
+      </div>
+      {tomorrowData.blocks.map((b, i) => (
+        <div key={b.id} style={{ marginBottom: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '9px', color: '#00ff41' }}>BLOCK {i+1}</span>
+            <button onClick={() => updateDay(getDateKey(1), { blocks: tomorrowData.blocks.filter(x => x.id !== b.id) })} style={{ background: 'transparent', border: 'none', color: '#ff4b4b' }}>✕</button>
+          </div>
+          <select value={b.subject} onChange={e => {
+            const newB = [...tomorrowData.blocks]; newB[i].subject = e.target.value; updateDay(getDateKey(1), { blocks: newB });
+          }} style={{ width: '100%', padding: '10px', background: '#111', color: '#fff', border: '1px solid #222', borderRadius: '8px', fontSize: '13px' }}>
+            {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div style={{ backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '24px 20px', fontFamily: '-apple-system, sans-serif', maxWidth: '500px', margin: '0 auto' }}>
-      
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <div style={{ fontSize: '38px', fontWeight: '800', letterSpacing: '-1.5px' }}>{time}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: session.color, boxShadow: `0 0 12px ${session.color}` }} />
-          <span style={{ fontSize: '11px', color: session.color, fontWeight: '900', letterSpacing: '1px' }}>{session.name}</span>
+    <div style={styles.container}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', maxWidth: '1400px', margin: '0 auto 40px' }}>
+        <div style={{ fontSize: isDesktop ? '64px' : '42px', fontWeight: '900', letterSpacing: '-3px' }}>{time}</div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '12px', color: session.color, fontWeight: '900' }}>{session.name} LIVE</div>
+          <div style={{ fontSize: '10px', color: '#333' }}>PACIFIC STANDARD TIME</div>
         </div>
-      </div>
+      </header>
 
-      {/* Navigation */}
-      <div style={{ display: 'flex', gap: '5px', marginBottom: '25px', background: 'rgba(255,255,255,0.03)', padding: '5px', borderRadius: '16px' }}>
+      {/* Mobile Nav Only */}
+      <div style={styles.nav}>
         {['TODAY', 'TOMORROW', 'TRADING'].map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeTab === t ? 'rgba(255,255,255,0.08)' : 'transparent', color: activeTab === t ? '#00ff41' : '#333', fontSize: '11px', fontWeight: '900' }}>{t}</button>
+          <button key={t} onClick={() => setActiveTab(t)} style={activeTab === t ? styles.activeTab : { flex: 1, background: 'transparent', border: 'none', color: '#333', fontSize: '11px' }}>{t}</button>
         ))}
       </div>
 
-      {activeTab === 'TODAY' && <>
-        <div style={styles.glass}>
-          <span style={styles.label}>LIVE TIMELINE</span>
-          {todayData.dayType === 'SCHOOL' && <BlockRow color="#ff4b4b" label="SCHOOL BLOCK" time="08:00 — 15:30" />}
-          {todayData.hasWork && <BlockRow color="#ff9500" label="WORK BLOCK" time={`${todayData.workStart} — 5H LOCK`} />}
-          
-          {todayData.blocks.map(b => (
-            <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'rgba(0,255,65,0.04)', borderRadius: '14px', marginBottom: '10px', border: '1px solid rgba(0,255,65,0.08)' }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '800' }}>{b.subject}</div>
-                <div style={{ fontSize: '10px', color: '#00ff41', marginTop: '4px' }}>{b.duration} MIN SESSION</div>
+      <div style={styles.layout}>
+        {/* Left Column (Desktop) or Selected Tab (Mobile) */}
+        {(isDesktop || activeTab === 'TODAY') && (
+          <div>
+            {TodayPanel}
+            <div style={styles.glass}>
+              <span style={styles.label}>RECOVERY LOG</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '32px', fontWeight: '900', color: '#00ff41' }}>{calcSleep(data.recovery.sleep, data.recovery.wake)}H</div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <TimePicker val={data.recovery.sleep} onChange={t => setData({...data, recovery: {...data.recovery, sleep: t}})} />
+                  <TimePicker val={data.recovery.wake} onChange={t => setData({...data, recovery: {...data.recovery, wake: t}})} />
+                </div>
               </div>
-              <input type="checkbox" onChange={handleMissionComplete} style={{ width: '22px', height: '22px', accentColor: '#00ff41', cursor: 'pointer' }} />
-            </div>
-          ))}
-          
-          {todayData.blocks.length === 0 && !todayData.hasWork && todayData.dayType !== 'SCHOOL' && (
-            <div style={{ textAlign: 'center', padding: '30px', color: '#222', fontSize: '11px', letterSpacing: '2px' }}>SYSTEM IDLE — NO BLOCKS FOUND</div>
-          )}
-        </div>
-
-        <div style={styles.glass}>
-          <span style={styles.label}>RECOVERY METRICS</span>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '34px', fontWeight: '900', color: '#00ff41', letterSpacing: '-1px' }}>{calcSleep(data.recovery.sleep, data.recovery.wake)}H</div>
-              <div style={{ fontSize: '9px', color: '#333', fontWeight: '700' }}>SLEEP QUALITY</div>
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <TimePicker val={data.recovery.sleep} onChange={t => setData({...data, recovery: {...data.recovery, sleep: t}})} />
-              <TimePicker val={data.recovery.wake} onChange={t => setData({...data, recovery: {...data.recovery, wake: t}})} />
             </div>
           </div>
-        </div>
-      </>}
+        )}
 
-      {activeTab === 'TOMORROW' && <>
-        <div style={styles.glass}>
-          <span style={styles.label}>GLOBAL CONSTRAINTS</span>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
-            <button onClick={() => updateDay(tomorrowKey, { dayType: 'SCHOOL' })} style={styles.chip(tomorrowData.dayType === 'SCHOOL', '#ff4b4b')}>SCHOOL</button>
-            <button onClick={() => updateDay(tomorrowKey, { dayType: 'HOLIDAY' })} style={styles.chip(tomorrowData.dayType === 'HOLIDAY', '#00ff41')}>HOLIDAY</button>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button onClick={() => updateDay(tomorrowKey, { hasWork: !tomorrowData.hasWork })} style={styles.chip(tomorrowData.hasWork, '#ff9500')}>WORK</button>
-            <button onClick={() => updateDay(tomorrowKey, { hasTrip: !tomorrowData.hasTrip })} style={styles.chip(tomorrowData.hasTrip, '#00ccff')}>TRIP</button>
-            {(tomorrowData.hasWork || tomorrowData.hasTrip) && <TimePicker val={tomorrowData.workStart} onChange={t => updateDay(tomorrowKey, { workStart: t })} />}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-          <button onClick={() => updateDay(tomorrowKey, { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'MATH', duration: 60 }] })} style={{ flex: 1, padding: '15px', background: '#111', color: '#fff', border: '1px solid #222', borderRadius: '14px', fontSize: '10px', fontWeight: '900' }}>+ 60M BLOCK</button>
-          <button onClick={() => updateDay(tomorrowKey, { blocks: [...tomorrowData.blocks, { id: Date.now(), subject: 'MATH', duration: 90 }] })} style={{ flex: 1, padding: '15px', background: '#111', color: '#fff', border: '1px solid #222', borderRadius: '14px', fontSize: '10px', fontWeight: '900' }}>+ 90M BLOCK</button>
-        </div>
-
-        {tomorrowData.blocks.map((b, i) => (
-          <div key={b.id} style={styles.glass}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-              <span style={{ fontSize: '10px', color: '#00ff41', fontWeight: '900' }}>{b.duration}M FLOW BLOCK</span>
-              <button onClick={() => updateDay(tomorrowKey, { blocks: tomorrowData.blocks.filter(x => x.id !== b.id) })} style={{ background: 'transparent', border: 'none', color: '#ff4b4b', cursor: 'pointer' }}>✕</button>
+        {/* Right Column (Desktop) or Selected Tab (Mobile) */}
+        {(isDesktop || activeTab === 'TOMORROW') && TomorrowPanel}
+        
+        {/* Trading (Full Width on Desktop Bottom or Tab on Mobile) */}
+        {(isDesktop || activeTab === 'TRADING') && (
+          <div style={{ gridColumn: isDesktop ? '1 / -1' : 'auto' }}>
+            <div style={styles.glass}>
+              <span style={styles.label}>TRADING TERMINAL</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: '900', color: session.color }}>{session.name} SESSION</div>
+                  <div style={{ fontSize: '10px', color: '#333' }}>MARKET IS OPEN</div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {['NY AM', 'NY PM', 'LONDON', 'ASIA'].map(s => (
+                    <button key={s} onClick={() => setData({...data, trading: {target: s}})} 
+                      style={{ padding: '10px 15px', borderRadius: '10px', background: data.trading.target === s ? '#00ff4111' : '#111', color: data.trading.target === s ? '#00ff41' : '#333', border: '1px solid #222', fontSize: '10px', fontWeight: '800' }}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <select value={b.subject} onChange={e => {
-              const newB = [...tomorrowData.blocks]; newB[i].subject = e.target.value; updateDay(tomorrowKey, { blocks: newB });
-            }} style={{ width: '100%', padding: '14px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '14px', fontWeight: '700', outline: 'none' }}>
-              {SUBJECTS.map(s => <option key={s} value={s} style={{background: '#111'}}>{s}</option>)}
-            </select>
           </div>
-        ))}
-      </>}
-
-      {activeTab === 'TRADING' && (
-        <div style={styles.glass}>
-          <span style={styles.label}>MARKET STATUS</span>
-          <div style={{ fontSize: '30px', fontWeight: '900', color: session.color, marginBottom: '25px' }}>{session.name} LIVE</div>
-          <span style={styles.label}>TARGET KILLZONE</span>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {['NY AM', 'NY PM', 'LONDON', 'ASIA'].map(s => (
-              <button key={s} onClick={() => setData({...data, trading: {target: s}})} 
-                style={styles.chip(data.trading.target === s, '#00ff41')}>
-                {s}
-              </button>
-            ))}
-          </div>
-          {data.trading.target === session.name && (
-            <div style={{ marginTop: '25px', padding: '15px', background: 'rgba(0,255,65,0.05)', border: '1px solid rgba(0,255,65,0.1)', borderRadius: '14px', color: '#00ff41', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-              ● EXECUTION WINDOW OPEN
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
