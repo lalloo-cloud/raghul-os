@@ -4,111 +4,123 @@ const Dashboard = () => {
   const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour12: false }));
   const [activeTab, setActiveTab] = useState('TODAY');
   
-  // Clean state for Today, Tomorrow, and Insights
   const [data, setData] = useState(() => {
-    const saved = localStorage.getItem('raghul_os_v16');
+    const saved = localStorage.getItem('raghul_os_v17');
     return saved ? JSON.parse(saved) : {
-      today: { mission: 'PHYSICS', duration: '90', strategy: 'NY AM KILLZONE', time: '08:30 - 11:00' },
-      tomorrow: { mission: 'SET_MISSION', duration: '0', strategy: 'SET_STRATEGY', time: '00:00 - 00:00' },
-      recovery: { sleep: '11:00 PM', wake: '07:00 AM' },
-      stats: { missionsCompleted: 12, totalHours: 48 }
+      today: { mission: 'PHYSICS', duration: '90', completed: false },
+      tomorrow: { blocks: [{ id: 1, type: 'FLOW', subject: 'MATH', duration: '90' }] },
+      trading: { strategy: 'NY AM KILLZONE', pair: 'EURUSD', window: '08:30 - 11:00' },
+      recovery: { sleep: '11:00 PM', wake: '07:00 AM' }
     };
   });
 
-  const [notes, setNotes] = useState(() => localStorage.getItem('raghul_notes_v16') || "> SYSTEM_STABLE\n> READY_FOR_INPUT");
-
   useEffect(() => {
-    localStorage.setItem('raghul_os_v16', JSON.stringify(data));
-    localStorage.setItem('raghul_notes_v16', notes);
-  }, [data, notes]);
+    localStorage.setItem('raghul_os_v17', JSON.stringify(data));
+  }, [data]);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date().toLocaleTimeString([], { hour12: false })), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const styles = {
-    container: { backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'monospace', overflowX: 'hidden' },
-    header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', borderBottom: '1px solid #111', paddingBottom: '15px' },
-    tabBtn: (active) => ({
-      background: 'none', border: 'none', color: active ? '#00ff41' : '#333', fontSize: '13px', fontWeight: 'bold',
-      cursor: 'pointer', marginRight: '15px', borderBottom: active ? '2px solid #00ff41' : 'none', paddingBottom: '5px'
-    }),
-    // Fixed: Flex-wrap allows phone stacking without "glitching" or sliding
-    mainGrid: { display: 'flex', flexWrap: 'wrap', gap: '20px' },
-    card: { 
-      backgroundColor: '#080808', borderLeft: '4px solid #1a1a1a', padding: '20px', 
-      flex: '1 1 300px', // This makes it wide on Mac but stacks on Phone
-      minWidth: '280px' 
-    },
-    label: { fontSize: '9px', color: '#444', letterSpacing: '2px', marginBottom: '10px', display: 'block' },
-    input: { background: 'transparent', border: 'none', color: '#fff', fontSize: '20px', fontWeight: 'bold', outline: 'none', width: '100%', fontFamily: 'monospace' },
-    subInput: { background: 'transparent', border: 'none', color: '#00ff41', fontSize: '11px', outline: 'none', width: '100%', marginTop: '5px' }
+  const addTomorrowBlock = (mins) => {
+    const newBlock = { id: Date.now(), type: 'FLOW', subject: 'NEW_TASK', duration: mins };
+    setData({...data, tomorrow: { blocks: [...data.tomorrow.blocks, newBlock] }});
   };
 
-  const renderPage = (dayKey) => (
-    <div style={styles.mainGrid}>
-      <div style={{...styles.card, borderLeftColor: '#00ff41'}}>
-        <span style={styles.label}>ACTIVE_MISSION_BLOCK</span>
-        <input style={styles.input} value={data[dayKey].mission} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], mission: e.target.value.toUpperCase()}})} />
-        <div style={{display: 'flex', gap: '10px'}}>
-           <input style={styles.subInput} value={`${data[dayKey].duration} MIN`} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], duration: e.target.value.replace(/\D/g,'')}})} />
-           <input style={styles.subInput} value={data[dayKey].time} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], time: e.target.value}})} />
-        </div>
-      </div>
-
-      <div style={{...styles.card, borderLeftColor: '#00ccff'}}>
-        <span style={styles.label}>NON_NEGOTIABLE_STRATEGY</span>
-        <input style={styles.input} value={data[dayKey].strategy} onChange={(e) => setData({...data, [dayKey]: {...data[dayKey], strategy: e.target.value.toUpperCase()}})} />
-      </div>
-
-      <div style={styles.card}>
-        <span style={styles.label}>RECOVERY_LOG</span>
-        <div style={{display: 'flex', gap: '10px'}}>
-          <input style={{...styles.input, fontSize: '14px'}} value={data.recovery.sleep} onChange={(e) => setData({...data, recovery: {...data.recovery, sleep: e.target.value}})} />
-          <input style={{...styles.input, fontSize: '14px'}} value={data.recovery.wake} onChange={(e) => setData({...data, recovery: {...data.recovery, wake: e.target.value}})} />
-        </div>
-      </div>
-
-      <div style={{...styles.card, borderLeftColor: '#ff4b4b', flex: '1 1 100%'}}>
-        <span style={styles.label}>TERMINAL_INPUT</span>
-        <textarea 
-          style={{background: 'transparent', border: 'none', color: '#00ff41', width: '100%', height: '80px', outline: 'none', resize: 'none', fontFamily: 'monospace'}}
-          value={notes} onChange={(e) => setNotes(e.target.value)}
-        />
-      </div>
-    </div>
-  );
+  const styles = {
+    container: { backgroundColor: '#000', color: 'white', minHeight: '100vh', padding: '15px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica' },
+    header: { marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid #111' },
+    clock: { fontSize: '32px', fontWeight: '800', letterSpacing: '-1px', display: 'block' },
+    tabBar: { display: 'flex', gap: '10px', marginBottom: '25px', overflowX: 'auto', paddingBottom: '5px' },
+    tab: (active) => ({
+      padding: '8px 16px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', border: 'none',
+      background: active ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
+      color: active ? '#00ff41' : '#666', backdropFilter: 'blur(10px)', transition: '0.2s'
+    }),
+    glassCard: {
+      background: 'rgba(20, 20, 20, 0.6)', backdropFilter: 'blur(20px)', borderRadius: '20px',
+      padding: '20px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '15px'
+    },
+    label: { fontSize: '10px', color: '#444', letterSpacing: '1px', fontWeight: 'bold', display: 'block', marginBottom: '8px' },
+    btn: { background: '#00ff41', color: '#000', border: 'none', borderRadius: '8px', padding: '8px 12px', fontWeight: 'bold', fontSize: '11px' }
+  };
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <div>
-          <div style={{fontSize: '9px', color: '#222', marginBottom: '10px'}}>RAGHUL_OS_v16</div>
-          <div style={{display: 'flex'}}>
-            {['TODAY', 'TOMORROW', 'INSIGHTS'].map(t => (
-              <button key={t} onClick={() => setActiveTab(t)} style={styles.tabBtn(activeTab === t)}>{t}</button>
-            ))}
-          </div>
-        </div>
-        <div style={{textAlign: 'right'}}>
-          <div style={{fontSize: '28px', fontWeight: 'bold'}}>{time}</div>
-          <div style={{fontSize: '8px', color: '#00ff41'}}>SYSTEM_OPERATIONAL</div>
-        </div>
+      <header style={styles.header}>
+        <span style={{ fontSize: '10px', color: '#00ff41', fontWeight: 'bold' }}>RAGHUL_OS // V17</span>
+        <span style={styles.clock}>{time}</span>
+      </header>
+
+      <div style={styles.tabBar}>
+        {['TODAY', 'TOMORROW', 'TRADING', 'INSIGHTS'].map(t => (
+          <button key={t} onClick={() => setActiveTab(t)} style={styles.tab(activeTab === t)}>{t}</button>
+        ))}
       </div>
 
-      {activeTab === 'TODAY' && renderPage('today')}
-      {activeTab === 'TOMORROW' && renderPage('tomorrow')}
+      {activeTab === 'TODAY' && (
+        <div>
+          <div style={styles.glassCard}>
+            <span style={styles.label}>ACTIVE MISSION</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '20px', fontWeight: 'bold' }}>{data.today.mission}</span>
+              <input type="checkbox" checked={data.today.completed} onChange={() => setData({...data, today: {...data.today, completed: !data.today.completed}})} style={{ width: '20px', height: '20px' }} />
+            </div>
+            <span style={{ color: '#00ff41', fontSize: '10px' }}>{data.today.duration} MIN SESSION</span>
+          </div>
+
+          <div style={styles.glassCard}>
+            <span style={styles.label}>RECOVERY LOG</span>
+            <div style={{ display: 'flex', gap: '20px' }}>
+              <div>
+                <div style={{ fontSize: '8px', color: '#333' }}>SLEEP</div>
+                <input style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '16px', outline: 'none', width: '80px' }} value={data.recovery.sleep} onChange={(e) => setData({...data, recovery: {...data.recovery, sleep: e.target.value}})} />
+              </div>
+              <div>
+                <div style={{ fontSize: '8px', color: '#333' }}>WAKE</div>
+                <input style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '16px', outline: 'none', width: '80px' }} value={data.recovery.wake} onChange={(e) => setData({...data, recovery: {...data.recovery, wake: e.target.value}})} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'TOMORROW' && (
+        <div>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <button onClick={() => addTomorrowBlock(60)} style={styles.btn}>+ 60m BLOCK</button>
+            <button onClick={() => addTomorrowBlock(90)} style={styles.btn}>+ 90m BLOCK</button>
+          </div>
+          {data.tomorrow.blocks.map((block, index) => (
+            <div key={block.id} style={styles.glassCard}>
+              <span style={styles.label}>BLOCK_{index + 1} ({block.duration}M)</span>
+              <input 
+                style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '18px', fontWeight: 'bold', width: '100%', outline: 'none' }}
+                value={block.subject}
+                onChange={(e) => {
+                  const newBlocks = [...data.tomorrow.blocks];
+                  newBlocks[index].subject = e.target.value.toUpperCase();
+                  setData({...data, tomorrow: { blocks: newBlocks }});
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'TRADING' && (
+        <div style={styles.glassCard}>
+          <span style={styles.label}>STRATEGY_EXECUTION</span>
+          <input style={{ background: 'transparent', border: 'none', color: '#00ff41', fontSize: '20px', fontWeight: 'bold', width: '100%', outline: 'none', marginBottom: '10px' }} value={data.trading.strategy} onChange={(e) => setData({...data, trading: {...data.trading, strategy: e.target.value.toUpperCase()}})} />
+          <span style={styles.label}>TIME_WINDOW</span>
+          <input style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '16px', width: '100%', outline: 'none' }} value={data.trading.window} onChange={(e) => setData({...data, trading: {...data.trading, window: e.target.value}})} />
+        </div>
+      )}
+
       {activeTab === 'INSIGHTS' && (
-        <div style={styles.mainGrid}>
-          <div style={styles.card}>
-            <span style={styles.label}>MISSIONS_COMPLETED</span>
-            <div style={{fontSize: '24px', fontWeight: 'bold'}}>{data.stats.missionsCompleted}</div>
-          </div>
-          <div style={styles.card}>
-            <span style={styles.label}>TOTAL_FLOW_HOURS</span>
-            <div style={{fontSize: '24px', fontWeight: 'bold'}}>{data.stats.totalHours}H</div>
-          </div>
+        <div style={{ textAlign: 'center', padding: '40px', color: '#222' }}>
+          <div style={{ fontSize: '10px' }}>SYSTEM_ANALYTICS_OFFLINE</div>
         </div>
       )}
     </div>
